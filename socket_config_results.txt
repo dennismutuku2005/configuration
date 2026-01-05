@@ -1,0 +1,37 @@
+
+==================================================
+Command: su
+Output:
+su
+success!
+SU_WAP>
+
+==================================================
+Command: set ssid index 1 security None
+Output:
+set ssid index 1 security None
+success!
+SU_WAP>
+
+==================================================
+Command: set ssid index 5 security None
+Output:
+set ssid index 5 security None
+success!
+SU_WAP>
+
+==================================================
+Command: display wlan config
+Output:
+display wlan config
+ERROR::The requested operation can not be performed. Please check whether the related parameters are correct!
+
+SU_WAP>
+
+==================================================
+Command: save
+Output:
+save
+ERROR::Command is not existed
+
+SU_WAP>
