@@ -48,7 +48,7 @@ class SimpleTelnetClient:
         except Exception:
             return ""
     
-    def configure_huawei(self, username, password):
+    def configure_huawei(self, username, password, version="5"):
         """Configure Huawei router"""
         if not self.connect():
             return False
@@ -80,16 +80,27 @@ class SimpleTelnetClient:
         print(f"After password: {prompt[:100]}...")
         
         if ">" in prompt or "#" in prompt:
-            print("Login successful!")
+            print(f"Login successful! Configuring for Version {version}...")
             
             # Execute commands
-            commands = [
-                "su",
-                "set ssid index 1 security None",
-                "set ssid index 5 security None",
-                "display wlan config",
-                "save"
-            ]
+            if version == "6":
+                commands = [
+                    "su",
+                    "set wlan basic laninst 1 wlaninst 1 beaconType None",
+                    "set wlan basic laninst 1 wlaninst 1 basicauthenticationmode None",
+                    "set wlan basic laninst 1 wlaninst 5 beaconType None",
+                    "set wlan basic laninst 1 wlaninst 5 basicauthenticationmode None",
+                    "display wlan config",
+                    "save"
+                ]
+            else:
+                commands = [
+                    "su",
+                    "set ssid index 1 security None",
+                    "set ssid index 5 security None",
+                    "display wlan config",
+                    "save"
+                ]
             
             results = []
             for cmd in commands:
@@ -100,11 +111,7 @@ class SimpleTelnetClient:
                 results.append(f"\n{'='*50}\nCommand: {cmd}\nOutput:\n{output}")
                 print(f"Response received: {len(output)} characters")
             
-            # Save results
-            with open('socket_config_results.txt', 'w') as f:
-                f.write("\n".join(results))
-            
-            print("\nConfiguration complete! Saved to socket_config_results.txt")
+            print("\nConfiguration complete!")
             
             # Exit
             self.send("exit")
@@ -117,5 +124,12 @@ class SimpleTelnetClient:
 
 # Usage
 if __name__ == "__main__":
+    print("Huawei Router Configuration Utility")
+    print("1. Version 5")
+    print("2. Version 6")
+    choice = input("Select version (1 or 2, default 1): ").strip()
+    
+    version = "6" if choice == "2" else "5"
+    
     client = SimpleTelnetClient("192.168.100.1", port=23, timeout=10)
-    client.configure_huawei("root", "Muuo02593.")
+    client.configure_huawei("root", "Muuo02593.", version=version)
