@@ -1,9 +1,5 @@
 <p align="center">
-  <img src="https://www.huawei.com/minisite/livelife/static/img/huawei-logo.6f2b86b.png" width="300" alt="Huawei Logo">
-</p>
-
-<p align="center">
-  <img src="https://file.rendit.io/n/36bFQVd5ts9EITIV2FVa.png" width="300" alt="Huawei Router Configurator">
+  <img src="https://1000logos.net/wp-content/uploads/2018/08/Huawei-Logo.png" width="300" alt="Huawei Logo">
 </p>
 
 # Huawei Router Configurator
