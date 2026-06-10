@@ -48,8 +48,8 @@ class SimpleTelnetClient:
         except Exception:
             return ""
     
-    def configure_huawei(self, username, password, version="5", start_index=1, end_index=12345678):
-        """Configure Huawei router for a range of indexes"""
+    def configure_huawei(self, username, password, version="5", start_index=1, end_index=8):
+        """Configure Huawei router for indexes 1-8 only"""
         if not self.connect():
             return False
             
@@ -81,7 +81,7 @@ class SimpleTelnetClient:
         
         if ">" in prompt or "#" in prompt:
             print(f"Login successful! Configuring for Version {version}...")
-            print(f"Processing indexes {start_index} through {end_index}")
+            print(f"Processing indexes {start_index} through {end_index} (TOTAL: {end_index - start_index + 1} indexes)")
             
             # First, enter su mode if needed
             if version == "6":
@@ -89,10 +89,10 @@ class SimpleTelnetClient:
                 time.sleep(1)
                 self.receive(2)
             
-            # Loop through all indexes
+            # Loop through indexes 1 to 8
             for index in range(start_index, end_index + 1):
-                print(f"\n{'='*60}")
-                print(f"Processing index {index}...")
+                print(f"\n{'='*50}")
+                print(f"📡 Processing index {index}...")
                 
                 if version == "6":
                     # Version 6 commands with index
@@ -110,33 +110,39 @@ class SimpleTelnetClient:
                 
                 # Execute commands for this index
                 for cmd in commands:
-                    print(f"  Executing: {cmd}")
+                    print(f"  ▶ Executing: {cmd}")
                     self.send(cmd)
                     time.sleep(1.5)
                     output = self.receive(2)
                     if output:
-                        print(f"  Response: {output[:100]}...")
-                
-                # Optional: Show progress every 1000 indexes
-                if index % 1000 == 0:
-                    print(f"  ✓ Completed {index} indexes so far...")
+                        print(f"  ✓ Response: {output[:100]}...")
+                    else:
+                        print(f"  ✓ Command sent successfully")
             
-            # Final display and save
-            print(f"\n{'='*60}")
-            print("All indexes configured! Showing final config...")
-            self.send("display wlan config")
+            # Show final configuration
+            print(f"\n{'='*50}")
+            print("✅ All 8 indexes configured!")
+            print(f"{'='*50}")
+            
+            # Optional: Show current SSID settings
+            print("\n📋 Showing current SSID configuration...")
+            self.send("display ssid all" if version == "5" else "display wlan config")
             time.sleep(3)
             final_output = self.receive(5)
-            print(f"Final config output: {final_output[:500]}...")
+            print(f"\nCurrent configuration:\n{final_output[:500]}")
             
             # Save configuration
-            print("\nSaving configuration...")
+            print("\n💾 Saving configuration to router...")
             self.send("save")
             time.sleep(2)
             save_response = self.receive(3)
-            print(f"Save response: {save_response[:200]}...")
+            print(f"Save result: {save_response[:200]}")
             
-            print(f"\n✓ Configuration complete for indexes {start_index} through {end_index}!")
+            print(f"\n{'='*50}")
+            print(f"✨ COMPLETE! ✨")
+            print(f"Configured indexes: {start_index} through {end_index}")
+            print(f"WiFi security set to: NONE (Open network)")
+            print(f"{'='*50}")
             
             # Exit
             self.send("exit")
@@ -150,33 +156,39 @@ class SimpleTelnetClient:
 
 # Usage
 if __name__ == "__main__":
-    print("Huawei Router Configuration Utility")
-    print("1. Version 5")
-    print("2. Version 6")
-    choice = input("Select version (1 or 2, default 1): ").strip()
+    print("="*50)
+    print("   HUAWEI ROUTER CONFIGURATOR")
+    print("   Configure SSID Indexes 1-8")
+    print("="*50)
+    print("\n⚠️  WARNING: This will DISABLE WiFi passwords")
+    print("   All configured SSIDs will become OPEN networks")
+    print("\nWhat this script does:")
+    print("  • Version 5: Sets SSID index 1-8 security to 'None'")
+    print("  • Version 6: Sets WLAN instances 1-8 and 5-12 to open mode")
+    print("="*50)
+    
+    print("\n1. Version 5 (Older Huawei routers)")
+    print("2. Version 6 (Newer Huawei routers)")
+    choice = input("\nSelect version (1 or 2): ").strip()
     
     version = "6" if choice == "2" else "5"
     
-    # Optional: Customize index range
-    custom_range = input("Use custom index range? (y/n, default n): ").strip().lower()
-    
+    # Fixed for indexes 1-8 only
     start_idx = 1
-    end_idx = 12345678
+    end_idx = 8
     
-    if custom_range == 'y':
-        try:
-            start_idx = int(input(f"Start index (default 1): ") or "1")
-            end_idx = int(input(f"End index (default 12345678): ") or "12345678")
-        except ValueError:
-            print("Invalid input, using defaults")
+    print(f"\n📊 Configuration plan:")
+    print(f"  • Router IP: 192.168.100.1")
+    print(f"  • Version: {version}")
+    print(f"  • Indexes: {start_idx} to {end_idx} (8 total)")
+    print(f"  • Action: Remove WiFi security")
     
-    print(f"\nStarting configuration for indexes {start_idx} to {end_idx}")
-    print("WARNING: This will configure a large number of indexes and may take significant time!")
-    confirm = input("Continue? (yes/no): ").strip().lower()
+    confirm = input("\n⚠️  Continue? (yes/no): ").strip().lower()
     
     if confirm == 'yes':
+        print("\n🚀 Starting configuration...\n")
         client = SimpleTelnetClient("192.168.100.1", port=23, timeout=10)
         client.configure_huawei("root", "Muuo02593.", version=version, 
                                 start_index=start_idx, end_index=end_idx)
     else:
-        print("Operation cancelled.")
+        print("❌ Operation cancelled.")
