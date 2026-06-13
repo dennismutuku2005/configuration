@@ -74,16 +74,15 @@ class SimpleTelnetClient:
         results = []
 
         if version == "5":
+            # Only modify the specific SSID index selected
             commands = [
-                f"set ssid index {ssid_index} security None",
-                f"set ssid index {ssid_index + 4} security None"
+                f"set ssid index {ssid_index} security None"
             ]
         else:
+            # Version 6 - only modify the specific wlaninst selected
             commands = [
                 f"set wlan basic laninst 1 wlaninst {ssid_index} beaconType None",
-                f"set wlan basic laninst 1 wlaninst {ssid_index} basicauthenticationmode None",
-                f"set wlan basic laninst 1 wlaninst {ssid_index + 4} beaconType None",
-                f"set wlan basic laninst 1 wlaninst {ssid_index + 4} basicauthenticationmode None"
+                f"set wlan basic laninst 1 wlaninst {ssid_index} basicauthenticationmode None"
             ]
 
         for cmd in commands:
@@ -184,7 +183,7 @@ class RouterApp:
         warn_frame.pack(fill=tk.X, pady=(0, 14))
 
         tk.Label(warn_frame,
-                 text="Warning: selected SSIDs will have their passwords removed and become open networks.",
+                 text="⚠ Warning: Selected SSIDs will have their passwords removed and become open networks.",
                  bg="#fff8e6", fg="#7a5800", font=("Segoe UI", 9),
                  anchor="w", pady=7, padx=10, wraplength=640, justify="left").pack(fill=tk.X)
 
@@ -197,9 +196,9 @@ class RouterApp:
         version_frame = ttk.LabelFrame(row, text="Router model", padding="10 8")
         version_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
 
-        ttk.Radiobutton(version_frame, text="HG8145V5  (version 5)",
+        ttk.Radiobutton(version_frame, text="HG8145V5 (version 5)",
                         variable=self.version, value="5").pack(anchor=tk.W, pady=2)
-        ttk.Radiobutton(version_frame, text="HG8145V6  (version 6)",
+        ttk.Radiobutton(version_frame, text="HG8145V6 (version 6)",
                         variable=self.version, value="6").pack(anchor=tk.W, pady=2)
 
         conn_frame = ttk.LabelFrame(row, text="Target", padding="10 8")
@@ -207,12 +206,18 @@ class RouterApp:
 
         ttk.Label(conn_frame, text="192.168.100.1 : 23",
                   font=("Segoe UI", 10), foreground="#1a1a1a").pack(anchor=tk.W)
-        ttk.Label(conn_frame, text="Telnet  /  root",
+        ttk.Label(conn_frame, text="Telnet / root",
                   font=("Segoe UI", 9), foreground="#999999").pack(anchor=tk.W, pady=(2, 0))
 
         # SSID selection
-        ssid_frame = ttk.LabelFrame(root_pad, text="SSIDs", padding="10 8")
+        ssid_frame = ttk.LabelFrame(root_pad, text="Select SSIDs to modify", padding="10 8")
         ssid_frame.pack(fill=tk.X, pady=(0, 14))
+
+        # Info about bands
+        info_frame = ttk.Frame(ssid_frame)
+        info_frame.pack(fill=tk.X, pady=(0, 8))
+        ttk.Label(info_frame, text="Note: Each SSID index is modified independently.",
+                  font=("Segoe UI", 8), foreground="#666666").pack(anchor=tk.W)
 
         grid = ttk.Frame(ssid_frame)
         grid.pack(fill=tk.X, pady=(0, 8))
@@ -308,9 +313,9 @@ class RouterApp:
             self.client.receive(2)
             self._log("Super user mode active", "dim")
 
-            # Process SSIDs
+            # Process SSIDs - each selected index independently
             version = self.version.get()
-            self._log(f"Router version: {version}  /  SSIDs: {', '.join(str(s) for s in selected)}", "dim")
+            self._log(f"Router version: {version}  /  Selected SSIDs: {', '.join(str(s) for s in selected)}", "dim")
 
             success_count = 0
             for ssid in selected:
@@ -318,10 +323,10 @@ class RouterApp:
                 results = self.client.remove_security(version, ssid)
                 all_ok = all(status == "Success" for status, _ in results)
                 if all_ok:
-                    self._log(f"SSID {ssid} — password removed", "ok")
+                    self._log(f"✓ SSID {ssid} — password removed", "ok")
                     success_count += 1
                 else:
-                    self._log(f"SSID {ssid} — one or more commands failed", "err")
+                    self._log(f"✗ SSID {ssid} — one or more commands failed", "err")
                     for status, cmd in results:
                         if status == "Failed":
                             self._log(f"  failed: {cmd}", "err")
@@ -330,9 +335,9 @@ class RouterApp:
             if success_count:
                 self._log("Saving configuration...", "dim")
                 self.client.save_configuration()
-                self._log(f"Done. {success_count} SSID(s) are now open.", "warn")
+                self._log(f"✓ Done. {success_count} SSID(s) are now open.", "warn")
             else:
-                self._log("No SSIDs were configured.", "err")
+                self._log("✗ No SSIDs were configured successfully.", "err")
 
             self.client.logout()
             self._set_status("Disconnected", "#999999")
