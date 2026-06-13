@@ -117,7 +117,7 @@ class RouterApp:
     ROUTER_IP = "192.168.100.1"
     PORT = 23
     USERNAME = "root"
-    PASSWORD = "Muuo02593."
+    PASSWORD = "Nuuo0678."  # Default password for both versions
 
     def __init__(self):
         self.root = tk.Tk()
