@@ -1,4 +1,4 @@
-('C:\\Users\\DENNISMUTUKU\\Desktop\\configuration\\application\\build\\HuaweiWiFiManager\\PYZ-00.pyz',
+('C:\\Users\\DENNISMUTUKU\\Desktop\\configuration\\application\\build\\kokonuttool\\PYZ-00.pyz',
  [('__future__',
    'C:\\Users\\DENNISMUTUKU\\AppData\\Local\\Programs\\Python\\Python314\\Lib\\__future__.py',
    'PYMODULE'),

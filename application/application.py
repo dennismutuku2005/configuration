@@ -113,20 +113,66 @@ class SimpleTelnetClient:
                 pass
 
 
+class TickRadio:
+    """A small clickable 'radio button' that shows a tick box (☑ / ☐)
+    instead of the default OS radio dot."""
+
+    def __init__(self, parent, variable, value, text,
+                 accent="#1d4ed8", bg="#ffffff"):
+        self.variable = variable
+        self.value = value
+        self.accent = accent
+        self.bg = bg
+
+        self.frame = tk.Frame(parent, bg=bg, cursor="hand2")
+        self.mark = tk.Label(self.frame, text="", font=("Segoe UI", 12),
+                              bg=bg, width=2)
+        self.mark.pack(side=tk.LEFT)
+        self.label = tk.Label(self.frame, text=text, font=("Segoe UI", 10), bg=bg)
+        self.label.pack(side=tk.LEFT, padx=(2, 0))
+
+        for widget in (self.frame, self.mark, self.label):
+            widget.bind("<Button-1>", self._select)
+
+        variable.trace_add("write", lambda *_: self._refresh())
+        self._refresh()
+
+    def _select(self, _event=None):
+        self.variable.set(self.value)
+
+    def _refresh(self):
+        if self.variable.get() == self.value:
+            self.mark.config(text="☑", fg=self.accent)
+            self.label.config(fg=self.accent, font=("Segoe UI", 10, "bold"))
+        else:
+            self.mark.config(text="☐", fg="#9aa5b1")
+            self.label.config(fg="#1a1a2e", font=("Segoe UI", 10))
+
+    def pack(self, **kwargs):
+        self.frame.pack(**kwargs)
+
+
 class RouterApp:
     ROUTER_IP = "192.168.100.1"
     PORT = 23
-    USERNAME = "root"
-    PASSWORD = "Nuuo0678."  # Default password for both versions
+
+    # Blue theme
+    ACCENT = "#1d4ed8"       # primary blue
+    ACCENT_DARK = "#1e3a8a"  # pressed/hover blue
+    ACCENT_LIGHT = "#eaf1ff" # tinted panel background
+    BORDER = "#c7d7f5"
+    BG = "#ffffff"
 
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("WiFi Security Manager")
+        self.root.title("KOKONUT")
         self.root.geometry("720x580")
         self.root.minsize(640, 500)
-        self.root.configure(bg="#ffffff")
+        self.root.configure(bg=self.BG)
 
         self.version = tk.StringVar(value="5")
+        self.username = tk.StringVar(value="root")
+        self.password = tk.StringVar(value="")
         self.ssid_vars = {}
         self.client = None
 
@@ -137,29 +183,29 @@ class RouterApp:
         style = ttk.Style()
         style.theme_use('clam')
 
-        style.configure(".", background="#ffffff", foreground="#1a1a1a", font=("Segoe UI", 10))
-        style.configure("TFrame", background="#ffffff")
-        style.configure("TLabelframe", background="#ffffff", bordercolor="#e0e0e0", relief="solid")
-        style.configure("TLabelframe.Label", background="#ffffff", foreground="#666666",
-                        font=("Segoe UI", 9))
+        style.configure(".", background=self.BG, foreground="#1a1a2e", font=("Segoe UI", 10))
+        style.configure("TFrame", background=self.BG)
+        style.configure("TLabelframe", background=self.BG, bordercolor=self.BORDER, relief="solid")
+        style.configure("TLabelframe.Label", background=self.BG, foreground=self.ACCENT_DARK,
+                         font=("Segoe UI", 9, "bold"))
 
-        style.configure("TRadiobutton", background="#ffffff", foreground="#1a1a1a",
-                        font=("Segoe UI", 10))
-        style.configure("TCheckbutton", background="#ffffff", foreground="#1a1a1a",
-                        font=("Segoe UI", 10))
+        style.configure("TCheckbutton", background=self.BG, foreground="#1a1a2e",
+                         font=("Segoe UI", 10))
+        style.map("TCheckbutton",
+                  indicatorcolor=[("selected", self.ACCENT), ("!selected", "#ffffff")])
 
-        style.configure("TButton", background="#f5f5f5", foreground="#1a1a1a",
-                        bordercolor="#d0d0d0", relief="solid", padding=(10, 6),
-                        font=("Segoe UI", 10))
+        style.configure("TButton", background=self.ACCENT_LIGHT, foreground=self.ACCENT_DARK,
+                         bordercolor=self.BORDER, relief="solid", padding=(10, 6),
+                         font=("Segoe UI", 10))
         style.map("TButton",
-                  background=[("active", "#ebebeb"), ("disabled", "#f9f9f9")],
-                  foreground=[("disabled", "#aaaaaa")])
+                  background=[("active", "#dbe6ff"), ("disabled", "#f3f6fc")],
+                  foreground=[("disabled", "#aab4c8")])
 
-        style.configure("Primary.TButton", background="#1a1a1a", foreground="#ffffff",
-                        bordercolor="#1a1a1a", font=("Segoe UI", 10, "bold"), padding=(10, 7))
+        style.configure("Primary.TButton", background=self.ACCENT, foreground="#ffffff",
+                         bordercolor=self.ACCENT, font=("Segoe UI", 10, "bold"), padding=(10, 7))
         style.map("Primary.TButton",
-                  background=[("active", "#333333"), ("disabled", "#cccccc")],
-                  foreground=[("disabled", "#888888")])
+                  background=[("active", self.ACCENT_DARK), ("disabled", "#a9c0f0")],
+                  foreground=[("disabled", "#eef2fb")])
 
     def _build_ui(self):
         root_pad = ttk.Frame(self.root, padding="20 16 20 16")
@@ -169,14 +215,15 @@ class RouterApp:
         hdr = ttk.Frame(root_pad)
         hdr.pack(fill=tk.X, pady=(0, 14))
 
-        ttk.Label(hdr, text="WiFi Security Manager",
-                  font=("Segoe UI", 15, "bold"), foreground="#1a1a1a").pack(side=tk.LEFT)
+        ttk.Label(hdr, text="KOKONUT",
+                  font=("Segoe UI", 15, "bold"), foreground=self.ACCENT).pack(side=tk.LEFT)
 
         self.status_label = ttk.Label(hdr, text="  Disconnected",
-                                      font=("Segoe UI", 9), foreground="#999999")
+                                       font=("Segoe UI", 9), foreground="#9aa5b1")
         self.status_label.pack(side=tk.RIGHT, pady=(4, 0))
 
-        ttk.Separator(root_pad, orient="horizontal").pack(fill=tk.X, pady=(0, 14))
+        sep = tk.Frame(root_pad, bg=self.ACCENT, height=2)
+        sep.pack(fill=tk.X, pady=(0, 14))
 
         # Warning
         warn_frame = tk.Frame(root_pad, bg="#fff8e6", relief="flat", bd=0)
@@ -196,28 +243,37 @@ class RouterApp:
         version_frame = ttk.LabelFrame(row, text="Router model", padding="10 8")
         version_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
 
-        ttk.Radiobutton(version_frame, text="HG8145V5 (version 5)",
-                        variable=self.version, value="5").pack(anchor=tk.W, pady=2)
-        ttk.Radiobutton(version_frame, text="HG8145V6 (version 6)",
-                        variable=self.version, value="6").pack(anchor=tk.W, pady=2)
+        v5 = TickRadio(version_frame, self.version, "5", "HG8145V5 (version 5)",
+                        accent=self.ACCENT, bg=self.BG)
+        v5.pack(anchor=tk.W, pady=2)
+        v6 = TickRadio(version_frame, self.version, "6", "HG8145V6 (version 6)",
+                        accent=self.ACCENT, bg=self.BG)
+        v6.pack(anchor=tk.W, pady=2)
 
-        conn_frame = ttk.LabelFrame(row, text="Target", padding="10 8")
+        conn_frame = ttk.LabelFrame(row, text="Login", padding="10 8")
         conn_frame.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
 
-        ttk.Label(conn_frame, text="192.168.100.1 : 23",
-                  font=("Segoe UI", 10), foreground="#1a1a1a").pack(anchor=tk.W)
-        ttk.Label(conn_frame, text="Telnet / root",
-                  font=("Segoe UI", 9), foreground="#999999").pack(anchor=tk.W, pady=(2, 0))
+        ttk.Label(conn_frame, text=f"{self.ROUTER_IP} : {self.PORT}",
+                  font=("Segoe UI", 9), foreground="#9aa5b1").pack(anchor=tk.W, pady=(0, 6))
+
+        ttk.Label(conn_frame, text="Username", font=("Segoe UI", 8),
+                  foreground="#6b7a99").pack(anchor=tk.W)
+        user_entry = ttk.Entry(conn_frame, textvariable=self.username, font=("Segoe UI", 10))
+        user_entry.pack(anchor=tk.W, fill=tk.X, pady=(0, 6))
+
+        ttk.Label(conn_frame, text="Password", font=("Segoe UI", 8),
+                  foreground="#6b7a99").pack(anchor=tk.W)
+        pass_entry = ttk.Entry(conn_frame, textvariable=self.password, show="•", font=("Segoe UI", 10))
+        pass_entry.pack(anchor=tk.W, fill=tk.X)
 
         # SSID selection
         ssid_frame = ttk.LabelFrame(root_pad, text="Select SSIDs to modify", padding="10 8")
         ssid_frame.pack(fill=tk.X, pady=(0, 14))
 
-        # Info about bands
         info_frame = ttk.Frame(ssid_frame)
         info_frame.pack(fill=tk.X, pady=(0, 8))
         ttk.Label(info_frame, text="Note: Each SSID index is modified independently.",
-                  font=("Segoe UI", 8), foreground="#666666").pack(anchor=tk.W)
+                  font=("Segoe UI", 8), foreground="#6b7a99").pack(anchor=tk.W)
 
         grid = ttk.Frame(ssid_frame)
         grid.pack(fill=tk.X, pady=(0, 8))
@@ -239,7 +295,7 @@ class RouterApp:
         action_row.pack(fill=tk.X, pady=(0, 14))
 
         self.remove_btn = ttk.Button(action_row, text="Remove passwords",
-                                     style="Primary.TButton", command=self._run)
+                                      style="Primary.TButton", command=self._run)
         self.remove_btn.pack(side=tk.LEFT, padx=(0, 8))
 
         ttk.Button(action_row, text="Clear log", command=self._clear_log).pack(side=tk.LEFT)
@@ -251,12 +307,12 @@ class RouterApp:
         self.log = scrolledtext.ScrolledText(
             log_frame, height=8, wrap=tk.WORD,
             font=("Consolas", 9), relief="flat", bd=0,
-            background="#fafafa", foreground="#333333"
+            background="#f5f8ff", foreground="#28324a"
         )
         self.log.pack(fill=tk.BOTH, expand=True)
         self.log.tag_config("ok", foreground="#1a7a3f")
         self.log.tag_config("err", foreground="#c0392b")
-        self.log.tag_config("dim", foreground="#999999")
+        self.log.tag_config("dim", foreground="#9aa5b1")
         self.log.tag_config("warn", foreground="#b07d00")
 
     # ------------------------------------------------------------------ helpers
@@ -278,7 +334,7 @@ class RouterApp:
         for v in self.ssid_vars.values():
             v.set(False)
 
-    def _set_status(self, text, color="#999999"):
+    def _set_status(self, text, color="#9aa5b1"):
         self.status_label.config(text=f"  {text}", foreground=color)
 
     # ------------------------------------------------------------------ main action
@@ -290,6 +346,10 @@ class RouterApp:
             messagebox.showwarning("Nothing selected", "Select at least one SSID.")
             return
 
+        if not self.username.get().strip() or not self.password.get():
+            messagebox.showwarning("Missing credentials", "Enter a username and password.")
+            return
+
         def worker():
             self.remove_btn.config(state=tk.DISABLED, text="Working...")
             self._set_status("Connecting...", "#b07d00")
@@ -297,7 +357,7 @@ class RouterApp:
             # Connect
             self._log(f"Connecting to {self.ROUTER_IP}:{self.PORT}...", "dim")
             self.client = SimpleTelnetClient(self.ROUTER_IP, self.PORT, timeout=10)
-            ok, msg = self.client.login(self.USERNAME, self.PASSWORD)
+            ok, msg = self.client.login(self.username.get().strip(), self.password.get())
 
             if not ok:
                 self._log(f"Connection failed: {msg}", "err")
@@ -340,7 +400,7 @@ class RouterApp:
                 self._log("✗ No SSIDs were configured successfully.", "err")
 
             self.client.logout()
-            self._set_status("Disconnected", "#999999")
+            self._set_status("Disconnected", "#9aa5b1")
             self.remove_btn.config(state=tk.NORMAL, text="Remove passwords")
 
         threading.Thread(target=worker, daemon=True).start()
