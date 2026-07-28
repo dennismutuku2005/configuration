@@ -90,7 +90,7 @@ class SimpleTelnetClient:
                     "set wlan basic laninst 1 wlaninst 1 basicauthenticationmode None",
                     "set wlan basic laninst 1 wlaninst 5 beaconType None",
                     "set wlan basic laninst 1 wlaninst 5 basicauthenticationmode None",
-                    "display wlan config",
+                    "save data",
                     "save"
                 ]
             else:
@@ -132,4 +132,4 @@ if __name__ == "__main__":
     version = "6" if choice == "2" else "5"
     
     client = SimpleTelnetClient("192.168.100.1", port=23, timeout=10)
-    client.configure_huawei("root", "Muuo02593.", version=version)
+    client.configure_huawei("root", "Muuo02593.", version=version)
