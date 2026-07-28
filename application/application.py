@@ -4,6 +4,11 @@ import socket
 import time
 import threading
 from datetime import datetime
+import json
+import os
+
+# Import the machine ID module
+from machine_id import get_machine_id, get_machine_info, verify_machine_id
 
 
 class SimpleTelnetClient:
@@ -74,12 +79,10 @@ class SimpleTelnetClient:
         results = []
 
         if version == "5":
-            # Only modify the specific SSID index selected
             commands = [
                 f"set ssid index {ssid_index} security None"
             ]
         else:
-            # Version 6 - only modify the specific wlaninst selected
             commands = [
                 f"set wlan basic laninst 1 wlaninst {ssid_index} beaconType None",
                 f"set wlan basic laninst 1 wlaninst {ssid_index} basicauthenticationmode None"
@@ -166,18 +169,27 @@ class RouterApp:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title("KOKONUT")
-        self.root.geometry("720x580")
-        self.root.minsize(640, 500)
+        self.root.geometry("720x650")
+        self.root.minsize(640, 570)
         self.root.configure(bg=self.BG)
 
+        # Get machine ID on startup
+        self.machine_id = get_machine_id()
+        self.machine_info = get_machine_info()
+        
         self.version = tk.StringVar(value="5")
         self.username = tk.StringVar(value="root")
         self.password = tk.StringVar(value="")
+        self.password_visible = tk.BooleanVar(value=False)
         self.ssid_vars = {}
         self.client = None
 
         self._setup_styles()
         self._build_ui()
+        
+        # Log machine information (only in log, not visible to user)
+        self._log(f"Machine ID: {self.machine_id[:8]}... (full ID stored securely)", "dim")
+        self._log(f"System: {self.machine_info['system']}", "dim")
 
     def _setup_styles(self):
         style = ttk.Style()
@@ -207,13 +219,37 @@ class RouterApp:
                   background=[("active", self.ACCENT_DARK), ("disabled", "#a9c0f0")],
                   foreground=[("disabled", "#eef2fb")])
 
+    def _copy_machine_id(self):
+        """Copy machine ID to clipboard with confirmation."""
+        # Ask for confirmation before copying full ID
+        if messagebox.askyesno("Copy Machine ID", 
+                               "This will copy the full machine ID to your clipboard.\n\n"
+                               "⚠️ Only share this ID with authorized support personnel."):
+            self.root.clipboard_clear()
+            self.root.clipboard_append(self.machine_id)
+            self.root.update()
+            self._log(f"📋 Machine ID copied to clipboard (use with caution)", "warn")
+            # Flash the label
+            self.id_label.config(foreground="#b07d00")
+            self.root.after(2000, lambda: self.id_label.config(foreground="#6b7a99"))
+
+    def _toggle_password(self):
+        """Toggle password visibility."""
+        self.password_visible.set(not self.password_visible.get())
+        if self.password_visible.get():
+            self.pass_entry.config(show="")
+            self.eye_btn.config(text="⊙")  # Single eye symbol when visible
+        else:
+            self.pass_entry.config(show="•")
+            self.eye_btn.config(text="◉")  # Single eye symbol when hidden
+
     def _build_ui(self):
         root_pad = ttk.Frame(self.root, padding="20 16 20 16")
         root_pad.pack(fill=tk.BOTH, expand=True)
 
         # Header
         hdr = ttk.Frame(root_pad)
-        hdr.pack(fill=tk.X, pady=(0, 14))
+        hdr.pack(fill=tk.X, pady=(0, 10))
 
         ttk.Label(hdr, text="KOKONUT",
                   font=("Segoe UI", 15, "bold"), foreground=self.ACCENT).pack(side=tk.LEFT)
@@ -221,6 +257,57 @@ class RouterApp:
         self.status_label = ttk.Label(hdr, text="  Disconnected",
                                        font=("Segoe UI", 9), foreground="#9aa5b1")
         self.status_label.pack(side=tk.RIGHT, pady=(4, 0))
+
+        # Machine ID Card - Now showing partial ID only
+        id_card = tk.Frame(root_pad, bg=self.ACCENT_LIGHT, relief="solid", bd=1, highlightbackground=self.BORDER)
+        id_card.pack(fill=tk.X, pady=(0, 14))
+
+        id_inner = tk.Frame(id_card, bg=self.ACCENT_LIGHT, padx=15, pady=10)
+        id_inner.pack(fill=tk.X)
+
+        # Left side: Label and partial ID
+        id_left = tk.Frame(id_inner, bg=self.ACCENT_LIGHT)
+        id_left.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        tk.Label(id_left, text="🔑 MACHINE ID (partial)", 
+                font=("Segoe UI", 8, "bold"), fg=self.ACCENT_DARK, bg=self.ACCENT_LIGHT).pack(anchor=tk.W)
+
+        id_row = tk.Frame(id_left, bg=self.ACCENT_LIGHT)
+        id_row.pack(anchor=tk.W, fill=tk.X)
+
+        # Show only first 8 and last 4 characters with asterisks in between
+        partial_id = f"{self.machine_id[:8]}••••{self.machine_id[-4:]}"
+        self.id_label = tk.Label(id_row, text=partial_id, 
+                                font=("Consolas", 12, "bold"), 
+                                fg="#1a1a2e", bg=self.ACCENT_LIGHT)
+        self.id_label.pack(side=tk.LEFT)
+
+        # Copy full ID button with caution
+        copy_btn = tk.Button(id_row, text="📋 Copy Full ID", 
+                            font=("Segoe UI", 8),
+                            bg=self.ACCENT, fg="white",
+                            relief="flat", padx=10, pady=2,
+                            cursor="hand2",
+                            command=self._copy_machine_id)
+        copy_btn.pack(side=tk.LEFT, padx=(10, 0))
+
+        # Right side: System info
+        id_right = tk.Frame(id_inner, bg=self.ACCENT_LIGHT)
+        id_right.pack(side=tk.RIGHT)
+
+        tk.Label(id_right, text=self.machine_info.get('system', 'Unknown'),
+                font=("Segoe UI", 9), fg="#6b7a99", bg=self.ACCENT_LIGHT).pack(anchor=tk.E)
+
+        # Add hardware info if available
+        hw_info = []
+        if 'windows_build' in self.machine_info:
+            hw_info.append(f"Build: {self.machine_info['windows_build']}")
+        if 'cpu_count' in self.machine_info:
+            hw_info.append(f"CPU: {self.machine_info['cpu_count']} cores")
+        
+        if hw_info:
+            tk.Label(id_right, text=" | ".join(hw_info),
+                    font=("Segoe UI", 8), fg="#9aa5b1", bg=self.ACCENT_LIGHT).pack(anchor=tk.E)
 
         sep = tk.Frame(root_pad, bg=self.ACCENT, height=2)
         sep.pack(fill=tk.X, pady=(0, 14))
@@ -263,8 +350,23 @@ class RouterApp:
 
         ttk.Label(conn_frame, text="Password", font=("Segoe UI", 8),
                   foreground="#6b7a99").pack(anchor=tk.W)
-        pass_entry = ttk.Entry(conn_frame, textvariable=self.password, show="•", font=("Segoe UI", 10))
-        pass_entry.pack(anchor=tk.W, fill=tk.X)
+        
+        # Password frame with single eye toggle (cleaner design)
+        pass_frame = tk.Frame(conn_frame, bg=self.BG)
+        pass_frame.pack(anchor=tk.W, fill=tk.X)
+
+        self.pass_entry = ttk.Entry(pass_frame, textvariable=self.password, show="•", font=("Segoe UI", 10))
+        self.pass_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        # Single clean eye button
+        self.eye_btn = tk.Button(pass_frame, text="◉", 
+                                font=("Segoe UI", 12),
+                                bg=self.BG, fg="#6b7a99",
+                                relief="flat", width=3,
+                                cursor="hand2",
+                                activebackground=self.BG,
+                                command=self._toggle_password)
+        self.eye_btn.pack(side=tk.RIGHT, padx=(5, 0))
 
         # SSID selection
         ssid_frame = ttk.LabelFrame(root_pad, text="Select SSIDs to modify", padding="10 8")
@@ -299,6 +401,9 @@ class RouterApp:
         self.remove_btn.pack(side=tk.LEFT, padx=(0, 8))
 
         ttk.Button(action_row, text="Clear log", command=self._clear_log).pack(side=tk.LEFT)
+        
+        # Add verify ID button
+        ttk.Button(action_row, text="Verify ID", command=self._verify_id).pack(side=tk.LEFT, padx=(8, 0))
 
         # Log
         log_frame = ttk.LabelFrame(root_pad, text="Log", padding="6 4")
@@ -336,6 +441,18 @@ class RouterApp:
 
     def _set_status(self, text, color="#9aa5b1"):
         self.status_label.config(text=f"  {text}", foreground=color)
+
+    def _verify_id(self):
+        """Verify if the machine ID is still consistent."""
+        if verify_machine_id():
+            messagebox.showinfo("Verification", 
+                              f"✅ Machine ID Verified\n\n"
+                              f"ID: {self.machine_id}\n\n"
+                              f"The ID is consistent with this system.")
+        else:
+            messagebox.showwarning("Verification Failed",
+                                 "❌ The machine ID appears to be different from the current system.\n\n"
+                                 "This might happen if you've changed hardware or operating system.")
 
     # ------------------------------------------------------------------ main action
 
