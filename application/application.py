@@ -7,6 +7,7 @@ from datetime import datetime
 import json
 import os
 import re
+import webbrowser
 import urllib.request
 import urllib.error
 
@@ -14,8 +15,11 @@ import urllib.error
 from machine_id import get_machine_id, get_machine_info, verify_machine_id
 
 
+# App Version Constant
+APP_VERSION = "2.0.0"
+
 # Configuration: Backend PHP API URL
-API_BASE_URL = "https://pacewisp.co.ke/api"  # Point this to where your PHP API files are uploaded
+API_BASE_URL = "https://pacewisp.co.ke/api"  # Point this to your PHP API host
 
 
 def is_internet_available(timeout=2.5):
@@ -44,7 +48,7 @@ def is_internet_available(timeout=2.5):
     try:
         req = urllib.request.Request(
             "https://pacewisp.co.ke",
-            headers={"User-Agent": "Kokonut-Tool/2.0"}
+            headers={"User-Agent": f"Kokonut-Tool/{APP_VERSION}"}
         )
         with urllib.request.urlopen(req, timeout=timeout):
             return True
@@ -59,7 +63,7 @@ def call_php_api(endpoint, payload=None, timeout=10):
     url = f"{API_BASE_URL}/{endpoint}"
     headers = {
         "Content-Type": "application/json",
-        "User-Agent": "Kokonut-Tool-Client/2.0",
+        "User-Agent": f"Kokonut-Tool-Client/{APP_VERSION}",
         "Accept": "application/json"
     }
 
@@ -730,6 +734,80 @@ class InAppMpesaModal:
         self.pay_btn.config(state=tk.NORMAL, text="📲 Send M-Pesa STK Push")
 
 
+class VersionBlockedModal:
+    """Dialog displayed when the app version is outdated or blocked by administrator."""
+
+    def __init__(self, parent, message, download_url):
+        self.parent = parent
+        self.message = message
+        self.download_url = download_url
+
+        self.modal = tk.Toplevel(parent)
+        self.modal.title("Application Update Required")
+        self.modal.geometry("480x320")
+        self.modal.resizable(False, False)
+        self.modal.configure(bg="#ffffff")
+
+        self.modal.transient(parent)
+        self.modal.grab_set()
+
+        # Center dialog
+        self.modal.update_idletasks()
+        w = self.modal.winfo_width()
+        h = self.modal.winfo_height()
+        x = self.parent.winfo_x() + (self.parent.winfo_width() // 2) - (w // 2)
+        y = self.parent.winfo_y() + (self.parent.winfo_height() // 2) - (h // 2)
+        self.modal.geometry(f"{w}x{h}+{x}+{y}")
+
+        self._build_ui()
+
+    def _build_ui(self):
+        main = tk.Frame(self.modal, bg="#ffffff", padx=25, pady=25)
+        main.pack(fill=tk.BOTH, expand=True)
+
+        tk.Label(main, text="⛔ Update Required", font=("Segoe UI", 16, "bold"), fg="#dc2626", bg="#ffffff").pack(pady=(0, 10))
+
+        tk.Label(
+            main,
+            text=self.message,
+            font=("Segoe UI", 10),
+            fg="#1e293b",
+            bg="#ffffff",
+            wraplength=420,
+            justify=tk.CENTER
+        ).pack(pady=(0, 20))
+
+        # Download Update Button
+        tk.Button(
+            main,
+            text="🌐 Download Latest Version",
+            font=("Segoe UI", 11, "bold"),
+            bg="#1d4ed8",
+            fg="white",
+            relief="flat",
+            padx=20,
+            pady=8,
+            cursor="hand2",
+            command=self._open_download
+        ).pack(fill=tk.X, pady=(0, 10))
+
+        tk.Button(
+            main,
+            text="Exit Application",
+            font=("Segoe UI", 9),
+            bg="#e2e8f0",
+            fg="#475569",
+            relief="flat",
+            padx=15,
+            pady=4,
+            command=self.parent.destroy
+        ).pack()
+
+    def _open_download(self):
+        if self.download_url:
+            webbrowser.open(self.download_url)
+
+
 class RouterApp:
     ROUTER_IP = "192.168.100.1"
     PORT = 23
@@ -743,7 +821,7 @@ class RouterApp:
 
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("KOKONUT")
+        self.root.title(f"KOKONUT v{APP_VERSION}")
         self.root.geometry("780x780")
         self.root.minsize(680, 680)
         self.root.configure(bg=self.BG)
@@ -761,8 +839,9 @@ class RouterApp:
         self.ssid_vars = {}
         self.client = None
         
-        # Online / Offline tracking
+        # Online / Offline tracking & Version enforcement
         self.is_online = False
+        self.is_version_blocked = False
         self.network_thread = None
         
         # Flag to track if operation is in progress
@@ -781,13 +860,14 @@ class RouterApp:
         self._setup_styles()
         self._build_ui()
         
-        # Start background network connectivity monitor & balance sync
+        # Start background network connectivity monitor, version verification, & balance sync
         self._start_network_monitor()
         
         # Set up the close handler
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         
         # Log machine information
+        self._log(f"Kokonut Router Tool v{APP_VERSION}", "ok")
         self._log(f"Machine ID: {self.machine_id[:8]}... (Hardware bound)", "dim")
         self._log(f"System: {self.machine_info['system']}", "dim")
         self._log(f"🔓 V5 unlock: {self.V5_UNLOCK_COST} tokens  |  🔓 V6 unlock: {self.V6_UNLOCK_COST} tokens", "dim")
@@ -830,33 +910,56 @@ class RouterApp:
                     self.root.after(0, self._update_network_ui)
                 
                 if online:
-                    self._sync_live_device_status()
+                    self._check_version_and_sync()
 
                 time.sleep(8)
 
         self.network_thread = threading.Thread(target=monitor, daemon=True)
         self.network_thread.start()
 
-    def _sync_live_device_status(self):
-        """Call device.php to verify machine ID and fetch real-time token balance."""
+    def _check_version_and_sync(self):
+        """Check app version policy and sync real-time balance."""
         try:
             # Re-verify hardware integrity (anti-cloning check)
             if not verify_machine_id():
                 self.root.after(0, lambda: self._log("⚠️ Hardware mismatch detected! Tokens cannot be transferred.", "err"))
                 return
 
-            res = call_php_api("device.php", {
+            # 1. Version Check
+            ver_res = call_php_api("check_version.php", {
+                "app_version": APP_VERSION,
+                "machine_id": self.machine_id
+            })
+
+            if ver_res.get("status") == "blocked" or (ver_res.get("data", {}).get("is_allowed") is False):
+                self.is_version_blocked = True
+                msg = ver_res.get("message", "This version of the application has been deprecated or blocked.")
+                dl_url = ver_res.get("data", {}).get("download_url", "https://pacewisp.co.ke/download")
+                self.root.after(0, lambda: self._handle_version_blocked(msg, dl_url))
+                return
+
+            # 2. Device & Balance Sync
+            dev_res = call_php_api("device.php", {
                 "machine_id": self.machine_id,
+                "app_version": APP_VERSION,
                 "system_info": self.machine_info
             })
 
-            if res.get("status") == "success":
-                data = res.get("data", {})
+            if dev_res.get("status") == "success":
+                data = dev_res.get("data", {})
                 live_bal = int(data.get("token_balance", 0))
                 self.token_balance = live_bal
                 self.root.after(0, self._update_balance_labels)
         except Exception:
             pass
+
+    def _handle_version_blocked(self, msg, dl_url):
+        """Disable operations when version is blocked."""
+        self.remove_btn.config(state=tk.DISABLED, text="⛔ Update Required")
+        self.connect_btn.config(state=tk.DISABLED)
+        self.net_badge.config(text="⛔ Version Blocked", fg="#dc2626", bg="#fef2f2")
+        self._log(f"⛔ {msg}", "err")
+        VersionBlockedModal(self.root, msg, dl_url)
 
     def _update_balance_labels(self):
         self.token_label.config(text=f"💎 {self.token_balance} tokens")
@@ -864,6 +967,9 @@ class RouterApp:
 
     def _update_network_ui(self):
         """Update online/offline badge in the UI."""
+        if self.is_version_blocked:
+            return
+
         if self.is_online:
             self.net_badge.config(
                 text="🟢 Online",
@@ -883,6 +989,10 @@ class RouterApp:
 
     def _connect_to_router(self):
         """Connect to the router."""
+        if self.is_version_blocked:
+            messagebox.showerror("Update Required", "Application version is no longer supported. Please update.", parent=self.root)
+            return False
+
         if self.is_connected and self.client and self.client.sock:
             return True
         
@@ -1021,7 +1131,7 @@ class RouterApp:
 
         title_frame = tk.Frame(hdr, bg=self.BG)
         title_frame.pack(side=tk.LEFT)
-        ttk.Label(title_frame, text="KOKONUT",
+        ttk.Label(title_frame, text=f"KOKONUT v{APP_VERSION}",
                   font=("Segoe UI", 15, "bold"), foreground=self.ACCENT).pack(side=tk.LEFT)
 
         # Online/Offline badge in header
@@ -1291,7 +1401,7 @@ class RouterApp:
             self.is_online = online
             self.root.after(0, self._update_network_ui)
             if online:
-                self._sync_live_device_status()
+                self._check_version_and_sync()
         threading.Thread(target=check, daemon=True).start()
 
     def _connect_click(self):
@@ -1359,6 +1469,10 @@ class RouterApp:
     # ------------------------------------------------------------------ main action
 
     def _run(self):
+        if self.is_version_blocked:
+            messagebox.showerror("Update Required", "Application version is outdated or blocked. Please download the update.", parent=self.root)
+            return
+
         selected = [i for i in range(1, 9) if self.ssid_vars[i].get()]
 
         if not selected:
@@ -1403,11 +1517,12 @@ class RouterApp:
             session_id = None
             configured_ssids = []
             try:
-                # 1. Initiate unlock on PHP API backend (Atomic Token Reservation)
+                # 1. Initiate unlock on PHP API backend (Atomic Token Reservation with Version Check)
                 self._log(f"Authorizing unlock with backend server ({required_tokens} tokens)...", "dim")
                 init_res = call_php_api("initiate_unlock.php", {
                     "machine_id": self.machine_id,
-                    "version": version
+                    "version": version,
+                    "app_version": APP_VERSION
                 })
 
                 if init_res.get("status") != "success":

@@ -2,7 +2,7 @@
 /**
  * Initiate Router Unlock Session & Real-Time Token Reservation
  * Endpoint: POST initiate_unlock.php
- * Payload: { "machine_id": "...", "version": "5"|"6" }
+ * Payload: { "machine_id": "...", "version": "5"|"6", "app_version": "2.0.0" }
  */
 
 require_once __DIR__ . '/config/db.php';
@@ -10,14 +10,35 @@ require_once __DIR__ . '/config/db.php';
 $input = getJsonInput();
 $machine_id = trim($input['machine_id'] ?? '');
 $version = trim($input['version'] ?? '5');
+$app_version = trim($input['app_version'] ?? '1.0.0');
 
 if (empty($machine_id)) {
     jsonResponse('error', 'Machine ID is required.', null, 400);
 }
 
-$cost = ($version === '6') ? COST_V6_UNLOCK : COST_V5_UNLOCK;
-
 $pdo = getDBConnection();
+
+// Server-side App Version Policy Enforcement
+$verStmt = $pdo->query("SELECT * FROM app_versions ORDER BY id DESC LIMIT 1");
+$policy = $verStmt->fetch();
+
+if ($policy) {
+    $minVersion = $policy['min_version'] ?? '2.0.0';
+    $isForceUpdate = (bool)($policy['is_force_update'] ?? 1);
+    $blockedList = array_filter(array_map('trim', explode(',', $policy['blocked_versions'] ?? '')));
+
+    if (in_array($app_version, $blockedList, true)) {
+        jsonResponse('blocked', "App version {$app_version} is blocked by administrator. Please update.", null, 403);
+    }
+
+    if ($isForceUpdate && version_compare($app_version, $minVersion, '<')) {
+        jsonResponse('blocked', "App version {$app_version} is deprecated. Minimum required version is {$minVersion}. Please download the latest update.", [
+            'download_url' => $policy['download_url'] ?? 'https://pacewisp.co.ke/download'
+        ], 403);
+    }
+}
+
+$cost = ($version === '6') ? COST_V6_UNLOCK : COST_V5_UNLOCK;
 
 // Cleanup / Finalize any stale sessions older than 5 minutes for this machine
 $staleCheck = $pdo->prepare("
