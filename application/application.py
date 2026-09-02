@@ -336,7 +336,7 @@ class InAppMpesaModal:
         self.modal.grab_set()
 
         self.phone_var = tk.StringVar(value="")
-        self.amount_var = tk.StringVar(value="70")
+        self.amount_var = tk.StringVar(value="50")
 
         self._center_modal()
         self._build_ui()
@@ -388,13 +388,13 @@ class InAppMpesaModal:
         self.amount_entry = ttk.Entry(form, textvariable=self.amount_var, font=("Segoe UI", 11))
         self.amount_entry.pack(fill=tk.X, pady=(0, 6))
 
-        # Quick preset buttons
+        # Quick preset buttons (Updated: V5=50, V6=70)
         preset_row = tk.Frame(form, bg="#ffffff")
         preset_row.pack(fill=tk.X, pady=(0, 14))
 
-        tk.Button(preset_row, text="KES 70 (V5 Unlock)", font=("Segoe UI", 8), bg="#f1f5f9", relief="flat", padx=8, pady=3, command=lambda: self.amount_var.set("70")).pack(side=tk.LEFT, padx=(0, 5))
-        tk.Button(preset_row, text="KES 100 (V6 Unlock)", font=("Segoe UI", 8), bg="#f1f5f9", relief="flat", padx=8, pady=3, command=lambda: self.amount_var.set("100")).pack(side=tk.LEFT, padx=(0, 5))
-        tk.Button(preset_row, text="KES 200", font=("Segoe UI", 8), bg="#f1f5f9", relief="flat", padx=8, pady=3, command=lambda: self.amount_var.set("200")).pack(side=tk.LEFT)
+        tk.Button(preset_row, text="KES 50 (V5 Unlock)", font=("Segoe UI", 8, "bold"), bg="#f1f5f9", relief="flat", padx=8, pady=3, command=lambda: self.amount_var.set("50")).pack(side=tk.LEFT, padx=(0, 5))
+        tk.Button(preset_row, text="KES 70 (V6 Unlock)", font=("Segoe UI", 8, "bold"), bg="#f1f5f9", relief="flat", padx=8, pady=3, command=lambda: self.amount_var.set("70")).pack(side=tk.LEFT, padx=(0, 5))
+        tk.Button(preset_row, text="KES 140", font=("Segoe UI", 8), bg="#f1f5f9", relief="flat", padx=8, pady=3, command=lambda: self.amount_var.set("140")).pack(side=tk.LEFT)
 
         # Status / Countdown Box
         self.status_box = tk.Frame(main, bg="#f8fafc", padx=12, pady=10, relief="solid", bd=1, highlightbackground="#e2e8f0")
@@ -667,9 +667,9 @@ class RouterApp:
         # Token balance (synced from DB)
         self.token_balance = 0
         
-        # Unlock costs
-        self.V5_UNLOCK_COST = 70
-        self.V6_UNLOCK_COST = 100
+        # Updated Unlock costs: V5 = 50 tokens, V6 = 70 tokens
+        self.V5_UNLOCK_COST = 50
+        self.V6_UNLOCK_COST = 70
 
         self._setup_styles()
         self._build_ui()
@@ -685,7 +685,7 @@ class RouterApp:
         self._log(f"Server URL: {API_BASE_URL}", "dim")
         self._log(f"Machine ID: {self.machine_id[:8]}... (Hardware bound)", "dim")
         self._log(f"System: {self.machine_info['system']}", "dim")
-        self._log(f"🔓 V5 unlock: {self.V5_UNLOCK_COST} tokens  |  🔓 V6 unlock: {self.V6_UNLOCK_COST} tokens", "dim")
+        self._log(f"🔓 V5 unlock: {self.V5_UNLOCK_COST} tokens (KES {self.V5_UNLOCK_COST})  |  🔓 V6 unlock: {self.V6_UNLOCK_COST} tokens (KES {self.V6_UNLOCK_COST})", "dim")
 
     def _setup_styles(self):
         style = ttk.Style()
@@ -1021,7 +1021,7 @@ class RouterApp:
                                        command=self._disconnect_click)
         self.disconnect_btn.pack(side=tk.LEFT)
 
-        # Token balance bar
+        # Token balance bar (Updated: V5=50, V6=70)
         balance_bar = tk.Frame(root_pad, bg="#f0f4ff", padx=12, pady=6)
         balance_bar.pack(fill=tk.X, pady=(0, 10))
         
@@ -1034,8 +1034,8 @@ class RouterApp:
                                      fg=self.ACCENT_DARK, bg="#f0f4ff")
         self.balance_label.pack(side=tk.LEFT, padx=(5, 0))
         
-        # Unlock costs
-        tk.Label(balance_bar, text="|  🔓 V5: 70 tokens (KES 70)  |  🔓 V6: 100 tokens (KES 100)", 
+        # Unlock costs display
+        tk.Label(balance_bar, text=f"|  🔓 V5: {self.V5_UNLOCK_COST} tokens (KES {self.V5_UNLOCK_COST})  |  🔓 V6: {self.V6_UNLOCK_COST} tokens (KES {self.V6_UNLOCK_COST})", 
                 font=("Segoe UI", 8), 
                 fg="#6b7a99", bg="#f0f4ff").pack(side=tk.LEFT, padx=(15, 0))
         
@@ -1061,10 +1061,10 @@ class RouterApp:
         version_frame = ttk.LabelFrame(row, text="Router model", padding="10 8")
         version_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
 
-        v5 = TickRadio(version_frame, self.version, "5", "HG8145V5 (version 5) - 70 tokens",
+        v5 = TickRadio(version_frame, self.version, "5", f"HG8145V5 (version 5) - {self.V5_UNLOCK_COST} tokens",
                         accent=self.ACCENT, bg=self.BG)
         v5.pack(anchor=tk.W, pady=2)
-        v6 = TickRadio(version_frame, self.version, "6", "HG8145V6 (version 6) - 100 tokens",
+        v6 = TickRadio(version_frame, self.version, "6", f"HG8145V6 (version 6) - {self.V6_UNLOCK_COST} tokens",
                         accent=self.ACCENT, bg=self.BG)
         v6.pack(anchor=tk.W, pady=2)
 

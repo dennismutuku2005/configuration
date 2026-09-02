@@ -8,12 +8,21 @@ A clean, modular PHP API backend with MySQL database integration, anti-cloning h
 
 ---
 
+## Token Pricing & Unlock Economics
+
+- **1 Token = KES 1.00**
+- **HG8145V5 Router Unlock**: `50 tokens` (KES 50)
+- **HG8145V6 Router Unlock**: `70 tokens` (KES 70)
+- **M-Pesa Payment Till Number**: `3018584`
+
+---
+
 ## Directory Structure
 
 ```
 php_api/
 ├── config/
-│   ├── config.php        # Global settings, constants, Till number (3018584), JSON helpers
+│   ├── config.php        # Global settings, constants (V5=50, V6=70), Till number (3018584), JSON helpers
 │   └── db.php            # Pure MySQL PDO connection handler (UTF-8, prepared statements)
 ├── database/
 │   └── schema.sql        # MySQL relational schema (devices, app_versions, transactions, unlock_sessions)
@@ -52,12 +61,6 @@ SET `blocked_versions` = '1.0.0,1.9.5'
 WHERE `id` = 1;
 ```
 
-When a user runs a blocked or outdated version:
-1. The desktop application detects the policy on startup.
-2. A modal dialog opens stating the update is required and provides a **"Download Latest Version"** button opening your download URL.
-3. Password removal and connection operations are disabled.
-4. Server-side endpoints (`device.php` and `initiate_unlock.php`) also block the request if the client version is unauthorized.
-
 ---
 
 ## Database Setup
@@ -76,9 +79,9 @@ Edit `config/config.php` with your live MySQL database credentials:
 
 ```php
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'your_database_name');
-define('DB_USER', 'your_database_user');
-define('DB_PASS', 'your_database_password');
+define('DB_NAME', 'your_db_name');
+define('DB_USER', 'your_db_username');
+define('DB_PASS', 'your_db_password');
 define('DB_PORT', 3306);
 ```
 
@@ -90,16 +93,7 @@ define('DB_PORT', 3306);
 |---|---|---|---|
 | `check_version.php` | POST/GET | `app_version`, `machine_id` | Check version validity, block outdated versions, get update URL |
 | `device.php` | POST/GET | `machine_id`, `app_version`, `system_info` | Verify device, track app version, & fetch live token balance |
-| `initiate_unlock.php` | POST | `machine_id`, `version`, `app_version` | Server-side version check, reserve tokens, & start 5-min session |
+| `initiate_unlock.php` | POST | `machine_id`, `version`, `app_version` | Server-side version check, reserve tokens (V5: 50, V6: 70), & start 5-min session |
 | `confirm_unlock.php` | POST | `session_id`, `machine_id`, `success`, `ssids_done` | Commit deduction or refund if failed |
 | `mpesa_stk.php` | POST | `phone`, `amount`, `machine_id`, `name` | Send M-Pesa STK Push to Till 3018584 |
 | `mpesa_status.php` | POST | `CheckoutRequestID` | Check status & credit tokens on success |
-
----
-
-## Client Application Configuration
-
-In `application/application.py`:
-```python
-API_BASE_URL = "https://kokonut.onenetwork-system.com"
-```

@@ -34,10 +34,10 @@ define('MPESA_STATUS_ENDPOINT', 'https://tuk.onenetwork-system.com/mpesa/v1/stat
 define('MPESA_TILL_NUMBER', '3018584');
 
 // -----------------------------------------------------------------------------
-// Token Economics & Session Settings
+// Token Economics & Session Settings (Updated: V5=50, V6=70)
 // -----------------------------------------------------------------------------
-define('COST_V5_UNLOCK', 70);       // 70 Tokens (KES 70) for HG8145V5
-define('COST_V6_UNLOCK', 100);      // 100 Tokens (KES 100) for HG8145V6
+define('COST_V5_UNLOCK', 50);          // 50 Tokens (KES 50) for HG8145V5
+define('COST_V6_UNLOCK', 70);          // 70 Tokens (KES 70) for HG8145V6
 define('UNLOCK_SESSION_TIMEOUT', 300); // 5 minutes timeout (in seconds)
 
 // -----------------------------------------------------------------------------
