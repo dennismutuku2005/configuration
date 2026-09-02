@@ -245,77 +245,6 @@ class SimpleTelnetClient:
 
         return results
 
-    def read_wifi_info(self, version):
-        """Query router for current WiFi configurations, SSID names, and passwords."""
-        wifi_data = []
-        if not self.sock or self.is_aborted:
-            return wifi_data
-
-        for i in range(1, 9):
-            if self.is_aborted:
-                break
-            info = {
-                "index": i,
-                "name": f"SSID {i}",
-                "security": "Unknown",
-                "password": "None / Open",
-                "status": "Unknown"
-            }
-            try:
-                if version == "5":
-                    self.send(f"display ssid index {i}")
-                    time.sleep(0.6)
-                    out = self.receive(2)
-                    
-                    name_match = re.search(r"SSID\s*Name\s*:\s*([^\r\n]+)", out, re.IGNORECASE)
-                    if name_match:
-                        info["name"] = name_match.group(1).strip()
-                    
-                    sec_match = re.search(r"Security\s*Mode\s*:\s*([^\r\n]+)", out, re.IGNORECASE)
-                    if sec_match:
-                        info["security"] = sec_match.group(1).strip()
-                    
-                    pwd_match = re.search(r"(?:WPA\s*PreSharedKey|PreSharedKey|Key|Password)\s*:\s*([^\r\n]+)", out, re.IGNORECASE)
-                    if pwd_match:
-                        pwd_val = pwd_match.group(1).strip()
-                        if pwd_val and pwd_val != "None" and pwd_val != "******":
-                            info["password"] = pwd_val
-                        elif "None" in info["security"] or "Open" in info["security"]:
-                            info["password"] = "(Open / No Password)"
-                    elif "None" in info["security"] or "Open" in info["security"]:
-                        info["password"] = "(Open / No Password)"
-
-                else:
-                    self.send(f"display wlan basic laninst 1 wlaninst {i}")
-                    time.sleep(0.5)
-                    basic_out = self.receive(2)
-                    
-                    name_match = re.search(r"SSID\s*:\s*([^\r\n]+)", basic_out, re.IGNORECASE) or re.search(r"SSID\s*Name\s*:\s*([^\r\n]+)", basic_out, re.IGNORECASE)
-                    if name_match:
-                        info["name"] = name_match.group(1).strip()
-                    
-                    sec_match = re.search(r"BeaconType\s*:\s*([^\r\n]+)", basic_out, re.IGNORECASE)
-                    if sec_match:
-                        info["security"] = sec_match.group(1).strip()
-                    
-                    self.send(f"display wlan wpa-psk laninst 1 wlaninst {i}")
-                    time.sleep(0.5)
-                    psk_out = self.receive(2)
-                    
-                    pwd_match = re.search(r"(?:PreSharedKey|WPA-PSK|Key|Password|wpa-psk)\s*:\s*([^\r\n]+)", psk_out, re.IGNORECASE)
-                    if pwd_match:
-                        pwd_val = pwd_match.group(1).strip()
-                        if pwd_val and pwd_val != "None":
-                            info["password"] = pwd_val
-                    elif "None" in info["security"] or "Open" in info["security"] or "Basic" in info["security"]:
-                        info["password"] = "(Open / No Password)"
-
-            except Exception:
-                pass
-
-            wifi_data.append(info)
-        return wifi_data
-
     def save_configuration(self):
         """Save router configuration data."""
         if self.sock and not self.is_aborted:
@@ -385,121 +314,6 @@ class TickRadio:
 
     def pack(self, **kwargs):
         self.frame.pack(**kwargs)
-
-
-class WiFiPasswordsModal:
-    """Modal dialog displaying current WiFi SSIDs and passwords read from the router."""
-    
-    def __init__(self, parent, wifi_info_list):
-        self.parent = parent
-        self.wifi_info_list = wifi_info_list
-        
-        self.modal = tk.Toplevel(parent)
-        self.modal.title("Router WiFi Passwords & SSIDs")
-        self.modal.geometry("640x500")
-        self.modal.minsize(580, 420)
-        self.modal.configure(bg="#ffffff")
-        
-        self.modal.transient(parent)
-        self.modal.grab_set()
-        self._center_modal()
-        self._build_ui()
-    
-    def _center_modal(self):
-        self.modal.update_idletasks()
-        w = self.modal.winfo_width()
-        h = self.modal.winfo_height()
-        x = self.parent.winfo_x() + (self.parent.winfo_width() // 2) - (w // 2)
-        y = self.parent.winfo_y() + (self.parent.winfo_height() // 2) - (h // 2)
-        self.modal.geometry(f"{w}x{h}+{x}+{y}")
-
-    def _build_ui(self):
-        main = tk.Frame(self.modal, bg="#ffffff", padx=20, pady=18)
-        main.pack(fill=tk.BOTH, expand=True)
-
-        hdr = tk.Frame(main, bg="#ffffff")
-        hdr.pack(fill=tk.X, pady=(0, 12))
-
-        tk.Label(hdr, text="📶 Current WiFi Passwords & SSIDs",
-                 font=("Segoe UI", 15, "bold"), fg="#1d4ed8", bg="#ffffff").pack(anchor=tk.W)
-        tk.Label(hdr, text="Live status retrieved from Huawei router.",
-                 font=("Segoe UI", 9), fg="#6b7a99", bg="#ffffff").pack(anchor=tk.W)
-
-        tbl_container = tk.Frame(main, bg="#f0f4ff", relief="solid", bd=1, highlightbackground="#c7d7f5")
-        tbl_container.pack(fill=tk.BOTH, expand=True, pady=(0, 14))
-
-        canvas = tk.Canvas(tbl_container, bg="#ffffff", highlightthickness=0)
-        scrollbar = ttk.Scrollbar(tbl_container, orient="vertical", command=canvas.yview)
-        scrollable_frame = tk.Frame(canvas, bg="#ffffff", padx=10, pady=10)
-
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
-        hdr_row = tk.Frame(scrollable_frame, bg="#eaf1ff", padx=6, pady=6)
-        hdr_row.pack(fill=tk.X, pady=(0, 6))
-        tk.Label(hdr_row, text="#", font=("Segoe UI", 9, "bold"), width=4, bg="#eaf1ff", anchor="w").pack(side=tk.LEFT)
-        tk.Label(hdr_row, text="SSID Name", font=("Segoe UI", 9, "bold"), width=18, bg="#eaf1ff", anchor="w").pack(side=tk.LEFT)
-        tk.Label(hdr_row, text="Security Mode", font=("Segoe UI", 9, "bold"), width=15, bg="#eaf1ff", anchor="w").pack(side=tk.LEFT)
-        tk.Label(hdr_row, text="Current Password", font=("Segoe UI", 9, "bold"), width=20, bg="#eaf1ff", anchor="w").pack(side=tk.LEFT)
-        tk.Label(hdr_row, text="Action", font=("Segoe UI", 9, "bold"), width=8, bg="#eaf1ff", anchor="w").pack(side=tk.LEFT)
-
-        if not self.wifi_info_list:
-            tk.Label(scrollable_frame, text="No WiFi information available or router disconnected.",
-                     font=("Segoe UI", 10), fg="#c0392b", bg="#ffffff", pady=20).pack()
-        else:
-            for item in self.wifi_info_list:
-                row = tk.Frame(scrollable_frame, bg="#ffffff", padx=6, pady=4, relief="solid", bd=1, highlightbackground="#edf2f7")
-                row.pack(fill=tk.X, pady=2)
-
-                tk.Label(row, text=str(item["index"]), font=("Segoe UI", 9, "bold"), width=4, bg="#ffffff", fg="#1d4ed8", anchor="w").pack(side=tk.LEFT)
-                tk.Label(row, text=item["name"], font=("Segoe UI", 9), width=18, bg="#ffffff", anchor="w").pack(side=tk.LEFT)
-                
-                sec_color = "#1a7a3f" if "None" in item["security"] or "Open" in item["security"] else "#1e3a8a"
-                tk.Label(row, text=item["security"], font=("Segoe UI", 9), fg=sec_color, width=15, bg="#ffffff", anchor="w").pack(side=tk.LEFT)
-
-                pwd_val = item["password"]
-                pwd_fg = "#9aa5b1" if pwd_val.startswith("(") else "#b07d00"
-                tk.Label(row, text=pwd_val, font=("Consolas", 9, "bold"), fg=pwd_fg, width=20, bg="#ffffff", anchor="w").pack(side=tk.LEFT)
-
-                def copy_pwd(p=pwd_val):
-                    self.modal.clipboard_clear()
-                    self.modal.clipboard_append(p)
-                    self.modal.update()
-                    messagebox.showinfo("Copied", f"Copied password to clipboard:\n{p}", parent=self.modal)
-
-                if not pwd_val.startswith("("):
-                    copy_btn = tk.Button(row, text="📋 Copy", font=("Segoe UI", 8),
-                                         bg="#f0f4ff", fg="#1d4ed8", relief="flat", padx=6, pady=1,
-                                         cursor="hand2", command=copy_pwd)
-                    copy_btn.pack(side=tk.LEFT)
-
-        btm = tk.Frame(main, bg="#ffffff")
-        btm.pack(fill=tk.X, pady=(5, 0))
-
-        def copy_all_summary():
-            lines = ["Huawei Router WiFi Configurations:"]
-            for itm in self.wifi_info_list:
-                lines.append(f"SSID {itm['index']} ({itm['name']}): Security={itm['security']} | Password={itm['password']}")
-            summary = "\n".join(lines)
-            self.modal.clipboard_clear()
-            self.modal.clipboard_append(summary)
-            self.modal.update()
-            messagebox.showinfo("Copied", "Full WiFi configuration summary copied to clipboard!", parent=self.modal)
-
-        tk.Button(btm, text="📋 Copy All Details", font=("Segoe UI", 9),
-                  bg="#e2e8f0", fg="#1a1a2e", relief="flat", padx=15, pady=5,
-                  cursor="hand2", command=copy_all_summary).pack(side=tk.LEFT)
-
-        tk.Button(btm, text="Close", font=("Segoe UI", 9, "bold"),
-                  bg="#1d4ed8", fg="white", relief="flat", padx=20, pady=5,
-                  cursor="hand2", command=self.modal.destroy).pack(side=tk.RIGHT)
 
 
 class InAppMpesaModal:
@@ -822,8 +636,8 @@ class RouterApp:
     def __init__(self):
         self.root = tk.Tk()
         self.root.title(f"KOKONUT v{APP_VERSION}")
-        self.root.geometry("780x780")
-        self.root.minsize(680, 680)
+        self.root.geometry("780x740")
+        self.root.minsize(680, 640)
         self.root.configure(bg=self.BG)
 
         # Get machine ID on startup & hardware lock check
@@ -1073,55 +887,6 @@ class RouterApp:
             self.id_label.config(foreground="#b07d00")
             self.root.after(2000, lambda: self.id_label.config(foreground="#6b7a99"))
 
-    def _view_current_passwords(self):
-        """Read and view current WiFi SSIDs and passwords from router."""
-        if self.is_operation_running:
-            messagebox.showwarning("Busy", "Another operation is running. Please wait.", parent=self.root)
-            return
-
-        if not self.password.get():
-            messagebox.showwarning("Enter Password", "Please enter the router password in the Login box first.", parent=self.root)
-            return
-
-        self.is_operation_running = True
-        self.stop_requested.clear()
-        self.remove_btn.config(state=tk.DISABLED)
-        self.view_pwd_btn.config(state=tk.DISABLED, text="Reading...")
-        self._set_status("Reading WiFi info...", "#b07d00")
-
-        def worker():
-            try:
-                if not self.is_connected or not self.client:
-                    self._log("Connecting to router to read WiFi passwords...", "dim")
-                    if not self._connect_to_router():
-                        self.root.after(0, lambda: messagebox.showerror("Connection Failed", "Unable to connect to router. Check your IP, username, and password.", parent=self.root))
-                        return
-
-                version = self.version.get()
-                self._log(f"Fetching current WiFi status for Version {version}...", "dim")
-                wifi_info = self.client.read_wifi_info(version)
-
-                if self.stop_requested.is_set():
-                    self._log("WiFi reading aborted.", "warn")
-                    return
-
-                self._log("✓ WiFi configuration retrieved:", "ok")
-                for w in wifi_info:
-                    pwd_display = w['password']
-                    self._log(f"  SSID {w['index']} [{w['name']}]: {w['security']} | Pass: {pwd_display}", "dim")
-
-                self.root.after(0, lambda: WiFiPasswordsModal(self.root, wifi_info))
-                self._set_status("Connected", "#1a7a3f")
-
-            except Exception as e:
-                self._log(f"Error reading passwords: {str(e)}", "err")
-                self._set_status("Error", "#c0392b")
-            finally:
-                self.is_operation_running = False
-                self.root.after(0, self._reset_ui)
-
-        threading.Thread(target=worker, daemon=True).start()
-
     def _build_ui(self):
         root_pad = ttk.Frame(self.root, padding="20 16 20 16")
         root_pad.pack(fill=tk.BOTH, expand=True)
@@ -1365,15 +1130,6 @@ class RouterApp:
                                       style="Primary.TButton", command=self._run)
         self.remove_btn.pack(side=tk.LEFT, padx=(0, 8))
 
-        # View Current WiFi Passwords button
-        self.view_pwd_btn = tk.Button(action_row, text="👁 View WiFi Passwords",
-                                     font=("Segoe UI", 9, "bold"),
-                                     bg="#0284c7", fg="white",
-                                     relief="flat", padx=12, pady=6,
-                                     cursor="hand2",
-                                     command=self._view_current_passwords)
-        self.view_pwd_btn.pack(side=tk.LEFT, padx=(0, 8))
-
         ttk.Button(action_row, text="Clear log", command=self._clear_log).pack(side=tk.LEFT)
         ttk.Button(action_row, text="Verify ID", command=self._verify_id).pack(side=tk.LEFT, padx=(8, 0))
 
@@ -1510,9 +1266,8 @@ class RouterApp:
         self.is_operation_running = True
         self.stop_requested.clear()
         
-        # Disable action buttons
+        # Disable action button
         self.remove_btn.config(state=tk.DISABLED, text="Authorizing...")
-        self.view_pwd_btn.config(state=tk.DISABLED)
 
         def worker():
             session_id = None
@@ -1628,7 +1383,6 @@ class RouterApp:
     def _reset_ui(self):
         """Reset the UI after operation completes."""
         self.remove_btn.config(state=tk.NORMAL, text="Remove passwords")
-        self.view_pwd_btn.config(state=tk.NORMAL, text="👁 View WiFi Passwords")
 
     # ------------------------------------------------------------------ lifecycle
 
