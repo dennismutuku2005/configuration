@@ -22,7 +22,7 @@ if (!$policy) {
     $policy = [
         'min_version'      => '2.0.0',
         'latest_version'   => '2.0.0',
-        'download_url'     => 'https://pacewisp.co.ke/download',
+        'download_url'     => 'https://kokonut.onenetwork-system.com/download',
         'update_message'   => 'Please update your application to continue.',
         'is_force_update'  => 1,
         'blocked_versions' => ''

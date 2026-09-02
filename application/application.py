@@ -18,8 +18,8 @@ from machine_id import get_machine_id, get_machine_info, verify_machine_id
 # App Version Constant
 APP_VERSION = "2.0.0"
 
-# Configuration: Backend PHP API URL
-API_BASE_URL = "https://pacewisp.co.ke/api"  # Point this to your PHP API host
+# Live Backend PHP API URL
+API_BASE_URL = "https://kokonut.onenetwork-system.com"
 
 
 def is_internet_available(timeout=2.5):
@@ -44,10 +44,10 @@ def is_internet_available(timeout=2.5):
     except Exception:
         pass
 
-    # Test 3: HTTP check to pacewisp.co.ke
+    # Test 3: HTTP check to live backend server
     try:
         req = urllib.request.Request(
-            "https://pacewisp.co.ke",
+            f"{API_BASE_URL}/check_version.php",
             headers={"User-Agent": f"Kokonut-Tool/{APP_VERSION}"}
         )
         with urllib.request.urlopen(req, timeout=timeout):
@@ -868,6 +868,7 @@ class RouterApp:
         
         # Log machine information
         self._log(f"Kokonut Router Tool v{APP_VERSION}", "ok")
+        self._log(f"Server URL: {API_BASE_URL}", "dim")
         self._log(f"Machine ID: {self.machine_id[:8]}... (Hardware bound)", "dim")
         self._log(f"System: {self.machine_info['system']}", "dim")
         self._log(f"🔓 V5 unlock: {self.V5_UNLOCK_COST} tokens  |  🔓 V6 unlock: {self.V6_UNLOCK_COST} tokens", "dim")
@@ -934,7 +935,7 @@ class RouterApp:
             if ver_res.get("status") == "blocked" or (ver_res.get("data", {}).get("is_allowed") is False):
                 self.is_version_blocked = True
                 msg = ver_res.get("message", "This version of the application has been deprecated or blocked.")
-                dl_url = ver_res.get("data", {}).get("download_url", "https://pacewisp.co.ke/download")
+                dl_url = ver_res.get("data", {}).get("download_url", f"{API_BASE_URL}/download")
                 self.root.after(0, lambda: self._handle_version_blocked(msg, dl_url))
                 return
 
@@ -977,7 +978,7 @@ class RouterApp:
                 bg="#ecfdf5",
                 highlightbackground="#a7f3d0"
             )
-            self._log("🌐 Connected to internet. Real-time token sync active.", "ok")
+            self._log("🌐 Connected to backend API. Real-time token sync active.", "ok")
         else:
             self.net_badge.config(
                 text="🔴 Offline",

@@ -33,7 +33,7 @@ if ($policy) {
 
     if ($isForceUpdate && version_compare($app_version, $minVersion, '<')) {
         jsonResponse('blocked', "App version {$app_version} is deprecated. Minimum required version is {$minVersion}. Please download the latest update.", [
-            'download_url' => $policy['download_url'] ?? 'https://pacewisp.co.ke/download'
+            'download_url' => $policy['download_url'] ?? 'https://kokonut.onenetwork-system.com/download'
         ], 403);
     }
 }

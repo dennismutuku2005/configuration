@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS `app_versions` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `min_version` VARCHAR(20) NOT NULL DEFAULT '2.0.0',
     `latest_version` VARCHAR(20) NOT NULL DEFAULT '2.0.0',
-    `download_url` VARCHAR(255) NOT NULL DEFAULT 'https://pacewisp.co.ke/download',
+    `download_url` VARCHAR(255) NOT NULL DEFAULT 'https://kokonut.onenetwork-system.com/download',
     `update_message` TEXT NULL,
     `is_force_update` TINYINT(1) NOT NULL DEFAULT 1,
     `blocked_versions` TEXT NULL, -- Comma-separated list of blocked versions (e.g., '1.0.0,1.9.0')
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS `app_versions` (
 
 -- Insert default app version rules if empty
 INSERT INTO `app_versions` (`id`, `min_version`, `latest_version`, `download_url`, `update_message`, `is_force_update`, `blocked_versions`)
-SELECT 1, '2.0.0', '2.0.0', 'https://pacewisp.co.ke/download', 'A new version of Kokonut is available. Please update to continue using the application.', 1, ''
+SELECT 1, '2.0.0', '2.0.0', 'https://kokonut.onenetwork-system.com/download', 'A new version of Kokonut is available. Please update to continue using the application.', 1, ''
 WHERE NOT EXISTS (SELECT 1 FROM `app_versions` WHERE `id` = 1);
 
 -- -----------------------------------------------------------------------------
